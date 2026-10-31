@@ -56,7 +56,10 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
 
         if (Store.autoFix(c) && Store.tryReserveAutoFix(c)) {
             Store.log(c, "Auto-fix: restarting Bluetooth")
-            BtRestart.restart(c)
+            // Run the restart as its own job. Turning Bluetooth off disconnects the buds,
+            // and that disconnect cancels this check job, so a restart run inline here
+            // would be killed before it turned Bluetooth back on.
+            Jobs.fixNow(c)
         } else {
             if (Store.autoFix(c)) Store.log(c, "Auto-fix paused (2 restarts in the last 10 min); notifying instead")
             Notifier.stuck(c, status.name)

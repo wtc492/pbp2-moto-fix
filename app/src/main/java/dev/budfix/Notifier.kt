@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -50,5 +51,33 @@ object Notifier {
 
     fun clearStuck(c: Context) {
         c.getSystemService(NotificationManager::class.java).cancel(ID)
+    }
+
+    private const val BT_OFF_ID = 2
+
+    /** Last resort if Bluetooth stays off: one tap opens Android's "turn on Bluetooth?" prompt. */
+    fun btOff(c: Context) {
+        ensureChannel(c)
+        val turnOn = PendingIntent.getActivity(
+            c, 3,
+            Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = Notification.Builder(c, CHANNEL)
+            .setSmallIcon(R.drawable.ic_buds)
+            .setContentTitle("Bluetooth is off")
+            .setContentText("Bud Fix couldn't turn it back on. Tap to turn it on.")
+            .setContentIntent(turnOn)
+            .setAutoCancel(true)
+            .build()
+        try {
+            c.getSystemService(NotificationManager::class.java).notify(BT_OFF_ID, n)
+        } catch (e: SecurityException) {
+            Store.log(c, "Couldn't show notification (notifications blocked for Bud Fix)")
+        }
+    }
+
+    fun clearBtOff(c: Context) {
+        c.getSystemService(NotificationManager::class.java).cancel(BT_OFF_ID)
     }
 }

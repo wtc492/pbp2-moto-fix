@@ -14,8 +14,19 @@ android {
         // turn Bluetooth off and on; apps targeting 32 or lower still are. This app is
         // for sideloading only, so the Play Store's target-SDK rules don't apply.
         targetSdk = 32
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    // A fixed debug key, so each GitHub build can install over the previous one.
+    // (GitHub's build machines otherwise make a new random key every run.)
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
