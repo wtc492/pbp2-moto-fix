@@ -51,6 +51,18 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
 
         if (!status.phantom) {
             Notifier.clearStuck(c)
+            if (Store.restartedRecently(c)) {
+                if (status.routed) {
+                    Store.clearRestarted(c)
+                    Store.log(c, "Fixed: ${status.name} reconnected with audio")
+                    Notifier.result(c, "${status.name} fixed", "Reconnected, and audio is going to the buds.")
+                } else if (reason == "after restart") {
+                    Notifier.result(
+                        c, "Bluetooth restarted",
+                        "${status.name} hasn't reconnected yet. Take the buds out of the case, or tap them in Bluetooth settings."
+                    )
+                }
+            }
             return Result.success()
         }
 

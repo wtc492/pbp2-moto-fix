@@ -53,6 +53,35 @@ object Notifier {
         c.getSystemService(NotificationManager::class.java).cancel(ID)
     }
 
+    private const val RESULT_CHANNEL = "results"
+    private const val RESULT_ID = 3
+
+    /** Status of a restart: "restarted", then "fixed" or "not back yet". Updates in place. */
+    fun result(c: Context, title: String, text: String) {
+        val nm = c.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(RESULT_CHANNEL, "Fix results", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val open = PendingIntent.getActivity(
+            c, 4, Intent(c, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = Notification.Builder(c, RESULT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_buds)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setTimeoutAfter(10 * 60_000L)
+            .build()
+        try {
+            nm.notify(RESULT_ID, n)
+        } catch (e: SecurityException) {
+            Store.log(c, "Couldn't show notification (notifications blocked for Bud Fix)")
+        }
+    }
+
     private const val BT_OFF_ID = 2
 
     /** Last resort if Bluetooth stays off: one tap opens Android's "turn on Bluetooth?" prompt. */

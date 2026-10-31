@@ -25,6 +25,15 @@ object Store {
     fun aclUp(c: Context): Boolean = prefs(c).getBoolean("aclUp", false)
     fun setAclUp(c: Context, up: Boolean) = prefs(c).edit().putBoolean("aclUp", up).apply()
 
+    /** Remembers that we just restarted Bluetooth, so the next good check can report success. */
+    fun markRestarted(c: Context) =
+        prefs(c).edit().putLong("restartedAt", System.currentTimeMillis()).apply()
+
+    fun restartedRecently(c: Context, windowMs: Long = 3 * 60_000L): Boolean =
+        System.currentTimeMillis() - prefs(c).getLong("restartedAt", 0L) < windowMs
+
+    fun clearRestarted(c: Context) = prefs(c).edit().remove("restartedAt").apply()
+
     @Synchronized
     fun log(c: Context, line: String) {
         val ts = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US).format(Date())

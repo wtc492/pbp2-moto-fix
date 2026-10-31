@@ -38,8 +38,7 @@ object BtRestart {
         // Try a few times; the stack sometimes refuses enable() right after shutting down.
         repeat(3) { attempt ->
             if (adapter.isEnabled || adapter.state == BluetoothAdapter.STATE_TURNING_ON) {
-                Store.log(ctx, "Bluetooth restarted")
-                Notifier.clearBtOff(ctx)
+                onRestarted(ctx)
                 return@withContext true
             }
             if (adapter.enable()) {
@@ -48,8 +47,7 @@ object BtRestart {
                     true
                 } ?: false
                 if (on) {
-                    Store.log(ctx, "Bluetooth restarted")
-                    Notifier.clearBtOff(ctx)
+                    onRestarted(ctx)
                     return@withContext true
                 }
             }
@@ -60,5 +58,15 @@ object BtRestart {
         Store.log(ctx, "Bluetooth is OFF and the app couldn't turn it back on")
         Notifier.btOff(ctx)
         false
+    }
+
+    private fun onRestarted(ctx: Context) {
+        Store.log(ctx, "Bluetooth restarted")
+        Notifier.clearBtOff(ctx)
+        Store.markRestarted(ctx)
+        Notifier.result(ctx, "Bluetooth restarted", "Waiting for your buds to reconnect…")
+        // The buds reconnecting triggers its own check sooner; this is the fallback
+        // that reports if they never come back.
+        Jobs.scheduleCheck(ctx, "after restart", 30)
     }
 }
