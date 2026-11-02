@@ -65,7 +65,7 @@ object Checker {
 
         val direct = aclConnectedDirect(device)
         return BudStatus(
-            name = device.name ?: address,
+            name = device.alias ?: device.name ?: address,
             aclConnected = direct ?: Store.aclUp(ctx),
             aclDirect = direct != null,
             a2dp = a2dpState,
@@ -74,13 +74,20 @@ object Checker {
         )
     }
 
-    @SuppressLint("MissingPermission")
     private suspend fun profileState(
         ctx: Context,
         adapter: BluetoothAdapter,
         profile: Int,
         device: BluetoothDevice,
-    ): Int {
+    ): Int = withProxy(ctx, adapter, profile) { it.getConnectionState(device) } ?: -1
+
+    /** Opens a profile proxy (media, calls, ...), runs [block] with it, and closes it. Null if unavailable. */
+    suspend fun <T> withProxy(
+        ctx: Context,
+        adapter: BluetoothAdapter,
+        profile: Int,
+        block: (BluetoothProfile) -> T,
+    ): T? {
         val proxy = withTimeoutOrNull(3_000) {
             suspendCancellableCoroutine<BluetoothProfile?> { cont ->
                 val ok = adapter.getProfileProxy(ctx, object : BluetoothProfile.ServiceListener {
@@ -92,9 +99,9 @@ object Checker {
                 }, profile)
                 if (!ok && cont.isActive) cont.resume(null)
             }
-        } ?: return -1
+        } ?: return null
         return try {
-            proxy.getConnectionState(device)
+            block(proxy)
         } finally {
             adapter.closeProfileProxy(profile, proxy)
         }

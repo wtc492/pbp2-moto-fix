@@ -25,14 +25,16 @@ object Store {
     fun aclUp(c: Context): Boolean = prefs(c).getBoolean("aclUp", false)
     fun setAclUp(c: Context, up: Boolean) = prefs(c).edit().putBoolean("aclUp", up).apply()
 
-    /** Remembers that we just restarted Bluetooth, so the next good check can report success. */
-    fun markRestarted(c: Context) =
-        prefs(c).edit().putLong("restartedAt", System.currentTimeMillis()).apply()
+    /** Opt-in fallback: open Bluetooth settings and tap the buds when Android refuses to reconnect them. */
+    fun tapFallback(c: Context): Boolean = prefs(c).getBoolean("tapFallback", false)
+    fun setTapFallback(c: Context, on: Boolean) = prefs(c).edit().putBoolean("tapFallback", on).apply()
 
-    fun restartedRecently(c: Context, windowMs: Long = 3 * 60_000L): Boolean =
-        System.currentTimeMillis() - prefs(c).getLong("restartedAt", 0L) < windowMs
+    /** Set while a restart + reconnect is running, so checks don't start a second one. */
+    fun setFixing(c: Context, on: Boolean) =
+        prefs(c).edit().putLong("fixingAt", if (on) System.currentTimeMillis() else 0L).apply()
 
-    fun clearRestarted(c: Context) = prefs(c).edit().remove("restartedAt").apply()
+    fun fixing(c: Context): Boolean =
+        System.currentTimeMillis() - prefs(c).getLong("fixingAt", 0L) < 3 * 60_000L
 
     @Synchronized
     fun log(c: Context, line: String) {

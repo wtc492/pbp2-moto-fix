@@ -1,5 +1,6 @@
 package dev.budfix
 
+import android.bluetooth.BluetoothProfile
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -8,6 +9,9 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 object Jobs {
@@ -41,6 +45,9 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         val address = Store.target(c) ?: return Result.success()
         val reason = inputData.getString("reason") ?: "event"
 
+        // A restart + reconnect is already running and will report its own result.
+        if (Store.fixing(c) && reason != "manual") return Result.success()
+
         val status = Checker.check(c, address)
         if (status == null) {
             Store.log(c, "[$reason] Bluetooth is off or unavailable")
@@ -51,18 +58,6 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
 
         if (!status.phantom) {
             Notifier.clearStuck(c)
-            if (Store.restartedRecently(c)) {
-                if (status.routed) {
-                    Store.clearRestarted(c)
-                    Store.log(c, "Fixed: ${status.name} reconnected with audio")
-                    Notifier.result(c, "${status.name} fixed", "Reconnected, and audio is going to the buds.")
-                } else if (reason == "after restart") {
-                    Notifier.result(
-                        c, "Bluetooth restarted",
-                        "${status.name} hasn't reconnected yet. Take the buds out of the case, or tap them in Bluetooth settings."
-                    )
-                }
-            }
             return Result.success()
         }
 
@@ -80,10 +75,67 @@ class CheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
     }
 }
 
+/** Restarts Bluetooth, then makes sure the buds actually come back with audio. */
 class FixWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
-    override suspend fun doWork(): Result {
-        Notifier.clearStuck(applicationContext)
-        BtRestart.restart(applicationContext)
-        return Result.success()
+    override suspend fun doWork(): Result = withContext(NonCancellable) {
+        val c = applicationContext
+        Store.setFixing(c, true)
+        try {
+            Notifier.clearStuck(c)
+            if (BtRestart.restart(c)) {
+                Store.target(c)?.let { reconnect(c, it) }
+            }
+        } finally {
+            Store.setFixing(c, false)
+        }
+        Result.success()
+    }
+
+    private suspend fun reconnect(c: Context, address: String) {
+        // Give the phone's own auto-reconnect a chance first.
+        if (waitForAudio(c, address, 10_000)) return fixed(c, address)
+
+        for (attempt in 1..3) {
+            Store.log(c, "Buds didn't come back on their own; reconnecting (attempt $attempt of 3)")
+            val accepted = Reconnect.request(c, address)
+
+            if (!accepted && Store.tapFallback(c)) {
+                val name = Checker.check(c, address)?.name ?: break
+                if (!TapService.tapDevice(c, name)) {
+                    Store.log(c, "Tap fallback skipped (service off, or phone locked)")
+                }
+            }
+
+            if (waitForAudio(c, address, 25_000)) return fixed(c, address)
+
+            // Media connected, but Android kept audio on the phone: point it at the buds.
+            val s = Checker.check(c, address)
+            if (s != null && s.a2dp == BluetoothProfile.STATE_CONNECTED && !s.routed) {
+                Reconnect.makeActive(c, address)
+                if (waitForAudio(c, address, 5_000)) return fixed(c, address)
+            }
+        }
+
+        val name = Checker.check(c, address)?.name ?: "Your buds"
+        Store.log(c, "Gave up: $name didn't reconnect")
+        Notifier.result(
+            c, "$name didn't reconnect",
+            "Bluetooth was restarted, but reconnecting didn't work. Tap the buds in Bluetooth settings. The Bud Fix log shows what was tried."
+        )
+    }
+
+    private suspend fun waitForAudio(c: Context, address: String, timeoutMs: Long): Boolean {
+        val end = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < end) {
+            if (Checker.check(c, address)?.routed == true) return true
+            delay(2_000)
+        }
+        return false
+    }
+
+    private suspend fun fixed(c: Context, address: String) {
+        val name = Checker.check(c, address)?.name ?: "Your buds"
+        Store.log(c, "Fixed: $name reconnected with audio")
+        Notifier.result(c, "$name fixed", "Reconnected, and audio is going to the buds.")
     }
 }

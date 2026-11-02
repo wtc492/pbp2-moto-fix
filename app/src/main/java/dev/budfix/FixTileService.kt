@@ -20,7 +20,9 @@ class FixTileService : TileService() {
 
     @Suppress("DEPRECATION")
     override fun onClick() {
-        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        if (applicationInfo.targetSdkVersion >= 31 &&
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+        ) {
             startActivityAndCollapse(
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )

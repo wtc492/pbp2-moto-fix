@@ -1,0 +1,4 @@
+<resources>
+    <string name="tap_service_label">Bud Fix reconnect tapper</string>
+    <string name="tap_service_description">When Bud Fix restarts Bluetooth and your earbuds don\'t come back on their own, this opens Bluetooth settings and taps your earbuds for you, then goes back. It can only see the Settings app and only acts while your phone is unlocked.</string>
+</resources>

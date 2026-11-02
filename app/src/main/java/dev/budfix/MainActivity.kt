@@ -23,6 +23,7 @@ class MainActivity : Activity() {
 
     private lateinit var deviceGroup: RadioGroup
     private lateinit var logView: TextView
+    private lateinit var tapStatus: TextView
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "log") runOnUiThread { logView.text = Store.logText(this).ifEmpty { "(empty)" } }
@@ -40,6 +41,15 @@ class MainActivity : Activity() {
         super.onResume()
         Store.prefs(this).registerOnSharedPreferenceChangeListener(prefListener)
         logView.text = Store.logText(this).ifEmpty { "(empty)" }
+        refreshTapStatus()
+    }
+
+    private fun refreshTapStatus() {
+        tapStatus.text = when {
+            !Store.tapFallback(this) -> "Off."
+            TapService.isOn() -> "On and ready."
+            else -> "Not enabled yet: turn on \"Bud Fix reconnect tapper\" in Accessibility settings."
+        }
     }
 
     override fun onPause() {
@@ -52,8 +62,10 @@ class MainActivity : Activity() {
         loadDevices()
     }
 
+    // Apps targeting Android 11 (this one) get Bluetooth access at install time.
     private fun hasBtPermission() =
-        checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        applicationInfo.targetSdkVersion < 31 ||
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -85,6 +97,25 @@ class MainActivity : Activity() {
             isChecked = Store.autoFix(this@MainActivity)
             setOnCheckedChangeListener { _, on -> Store.setAutoFix(this@MainActivity, on) }
         })
+
+        root.addView(header("If the buds don't reconnect"))
+        root.addView(TextView(this).apply {
+            text = "After restarting Bluetooth, Bud Fix asks Android to reconnect the buds. " +
+                "If your phone blocks that, this can open Bluetooth settings and tap the buds for you " +
+                "(only while the phone is unlocked). It uses an accessibility service that can only see the Settings app."
+        })
+        root.addView(Switch(this).apply {
+            text = "Tap the buds in Bluetooth settings for me"
+            isChecked = Store.tapFallback(this@MainActivity)
+            setOnCheckedChangeListener { _, on ->
+                Store.setTapFallback(this@MainActivity, on)
+                refreshTapStatus()
+                if (on && !TapService.isOn()) openAccessibilitySettings()
+            }
+        })
+        tapStatus = TextView(this).apply { setPadding(0, dp(4), 0, 0) }
+        root.addView(tapStatus)
+        root.addView(button("Open Accessibility settings") { openAccessibilitySettings() })
 
         root.addView(header("Manual"))
         root.addView(button("Check now") {
@@ -137,6 +168,11 @@ class MainActivity : Activity() {
                 }
             })
         }
+    }
+
+    private fun openAccessibilitySettings() {
+        toast("Find \"Bud Fix reconnect tapper\" and turn it on")
+        startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

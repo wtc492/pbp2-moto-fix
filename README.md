@@ -16,6 +16,13 @@ No internet permission, no analytics, no accounts. Everything stays on the phone
    - shows a notification with a **Restart Bluetooth** button (default), or
    - restarts Bluetooth on its own (at most twice per 10 minutes, then falls back to notifying).
 
+After any restart, Bud Fix makes sure the buds actually come back:
+
+1. It waits 10 seconds for the phone to reconnect them on its own.
+2. If they're not back, it asks Android to connect them (up to 3 tries). If they connect but audio stays on the phone, it points media audio at the buds.
+3. If Android blocks those requests (some phones only allow them for system apps), the optional **tap fallback** opens Bluetooth settings, taps the buds, and goes back, the same as you would by hand.
+4. You get a notification either way: fixed, or didn't reconnect.
+
 There's also a **Fix buds** Quick Settings tile for a one-tap restart, any time.
 
 ## Build it
@@ -34,7 +41,8 @@ Open this folder in Android Studio, let it sync, then Run onto your phone (USB o
 1. Open Bud Fix and allow **Nearby devices** (needed to see the buds and restart Bluetooth). Allow notifications too.
 2. Pick your Pixel Buds Pro 2 from the list.
 3. Optional: turn on automatic restarts.
-4. Add the tile: pull down Quick Settings, tap the edit (pencil) button, and drag **Fix buds** in.
+4. Optional, recommended: turn on **Tap the buds in Bluetooth settings for me**, then enable **Bud Fix reconnect tapper** in Accessibility settings. If Android says it's a "restricted setting", open Settings > Apps > Bud Fix, tap the ⋮ menu, choose **Allow restricted settings**, and try again.
+5. Add the tile: pull down Quick Settings, tap the edit (pencil) button, and drag **Fix buds** in.
 
 ## Check that the detection matches your bug
 
@@ -51,8 +59,10 @@ The stuck-state rule is an educated guess. Before trusting auto-fix, leave it on
 
 ## Tradeoffs and limitations
 
-- **Old target SDK on purpose.** Since Android 13, apps that target Android 13+ can't turn Bluetooth off and on. Apps that target Android 12L (SDK 32) or lower still can, so this app targets 32. Side effects: Android may warn that the app was "built for an older version of Android" at install, and Play Protect may ask you to confirm the install. It also means it can never go on the Play Store, which doesn't matter for personal use.
+- **Old target SDK on purpose.** Since Android 13, apps that target Android 13+ can't turn Bluetooth off and on, and the hidden "connect this device" calls are only reachable by apps targeting Android 11 (SDK 30) or lower. So this app targets 30. Side effects: Android may warn that the app was "built for an older version of Android" at install, and Play Protect may ask you to confirm the install. It also means it can never go on the Play Store, which doesn't matter for personal use.
 - **Could stop working.** A future Android or Motorola update could block old-target apps from restarting Bluetooth. The log will say "Restart refused" if that happens; the notification and detection still work.
+- **Reconnect requests may be blocked.** The log shows each attempt as "accepted" or "blocked". If they're blocked on your phone, the tap fallback is what reconnects the buds.
+- **The tap fallback is brittle and needs the phone unlocked.** It looks for the buds by name in Bluetooth settings, so a Settings redesign could break it. While it runs, your screen briefly switches to Bluetooth settings and back. It can only see the Settings app.
 - **A restart drops every Bluetooth connection** for a few seconds (watch, car, etc.). That's why auto-fix is off by default and rate-limited.
 - **It only checks after connection events and when you tap Check now.** If audio silently stops mid-session without any connection change, it won't notice.
 - **Not tested on your phone.** It was written without access to a device or the Android SDK, so the first build may need small fixes.

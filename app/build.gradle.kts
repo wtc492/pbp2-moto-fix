@@ -10,12 +10,14 @@ android {
     defaultConfig {
         applicationId = "dev.budfix"
         minSdk = 31
-        // Deliberately 32 (Android 12L). Apps targeting 33+ are no longer allowed to
-        // turn Bluetooth off and on; apps targeting 32 or lower still are. This app is
-        // for sideloading only, so the Play Store's target-SDK rules don't apply.
-        targetSdk = 32
-        versionCode = 3
-        versionName = "1.2"
+        // Deliberately 30 (Android 11), for two reasons:
+        //  - apps targeting 33+ can't turn Bluetooth off and on; 32 or lower still can;
+        //  - the hidden "connect this device" calls used for reconnecting are only
+        //    reachable by apps targeting 30 or lower.
+        // This app is sideloaded only, so the Play Store's target-SDK rules don't apply.
+        targetSdk = 30
+        versionCode = 4
+        versionName = "1.3"
     }
 
     // A fixed debug key, so each GitHub build can install over the previous one.

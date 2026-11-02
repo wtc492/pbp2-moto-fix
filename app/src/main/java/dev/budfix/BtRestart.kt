@@ -63,10 +63,6 @@ object BtRestart {
     private fun onRestarted(ctx: Context) {
         Store.log(ctx, "Bluetooth restarted")
         Notifier.clearBtOff(ctx)
-        Store.markRestarted(ctx)
-        Notifier.result(ctx, "Bluetooth restarted", "Waiting for your buds to reconnect…")
-        // The buds reconnecting triggers its own check sooner; this is the fallback
-        // that reports if they never come back.
-        Jobs.scheduleCheck(ctx, "after restart", 30)
+        Notifier.result(ctx, "Bluetooth restarted", "Reconnecting your buds…")
     }
 }
